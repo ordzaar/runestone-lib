@@ -50,7 +50,7 @@ export class RuneUpdater implements RuneBlockIndex {
     block: BlockInfo,
     readonly reorg: boolean,
     private readonly _storage: RunestoneStorage,
-    private readonly _rpc: BitcoinRpcClient
+    private readonly _rpc: BitcoinRpcClient,
   ) {
     this.block = {
       height: block.height,
@@ -73,7 +73,7 @@ export class RuneUpdater implements RuneBlockIndex {
     const optionArtifact = Runestone.decipher(tx);
     const unallocated = await this.unallocated(tx);
     const allocated: Map<string, RuneBalance>[] = [...new Array(tx.vout.length)].map(
-      () => new Map()
+      () => new Map(),
     );
 
     function getUnallocatedRuneBalance(runeId: RuneLocation) {
@@ -105,7 +105,7 @@ export class RuneUpdater implements RuneBlockIndex {
           const unallocatedBalance = getUnallocatedRuneBalance(runeLocation);
           unallocatedBalance.amount = u128.checkedAddThrow(
             u128(unallocatedBalance.amount),
-            u128(amount)
+            u128(amount),
           );
         }
       }
@@ -120,7 +120,7 @@ export class RuneUpdater implements RuneBlockIndex {
           const unallocatedBalance = getUnallocatedRuneBalance(etched.runeId);
           unallocatedBalance.amount = u128.checkedAddThrow(
             u128(unallocatedBalance.amount),
-            runestone.etching.unwrap().premine.unwrapOr(u128(0))
+            runestone.etching.unwrap().premine.unwrapOr(u128(0)),
           );
         }
 
@@ -174,7 +174,7 @@ export class RuneUpdater implements RuneBlockIndex {
                 for (const output of destinations) {
                   allocate(
                     amount < maybeBalance.amount ? amount : u128(maybeBalance.amount),
-                    output
+                    output,
                   );
                 }
               }
@@ -185,7 +185,7 @@ export class RuneUpdater implements RuneBlockIndex {
               amount !== 0n && amount < u128(maybeBalance.amount)
                 ? amount
                 : u128(maybeBalance.amount),
-              Number(output)
+              Number(output),
             );
           }
         }
@@ -211,7 +211,7 @@ export class RuneUpdater implements RuneBlockIndex {
         const currentBalance = getBurnedRuneBalance(balance.runeId);
         currentBalance.amount = u128.checkedAddThrow(
           u128(currentBalance.amount),
-          u128(balance.amount)
+          u128(balance.amount),
         );
       }
     } else {
@@ -232,7 +232,7 @@ export class RuneUpdater implements RuneBlockIndex {
         })
         .orElse(() => {
           const entry = [...tx.vout.entries()].find(
-            ([_, txOut]) => !isScriptPubKeyHexOpReturn(txOut.scriptPubKey.hex)
+            ([_, txOut]) => !isScriptPubKeyHexOpReturn(txOut.scriptPubKey.hex),
           );
           return entry !== undefined ? Some(entry[0]) : None;
         });
@@ -243,7 +243,7 @@ export class RuneUpdater implements RuneBlockIndex {
             const currentBalance = getAllocatedRuneBalance(vout, balance.runeId);
             currentBalance.amount = u128.checkedAddThrow(
               u128(currentBalance.amount),
-              u128(balance.amount)
+              u128(balance.amount),
             );
           }
         }
@@ -273,14 +273,14 @@ export class RuneUpdater implements RuneBlockIndex {
           const currentBurned = getBurnedRuneBalance(balance.runeId);
           currentBurned.amount = u128.checkedAddThrow(
             u128(currentBurned.amount),
-            u128(balance.amount)
+            u128(balance.amount),
           );
         }
         continue;
       }
 
       const etchingByRuneId = new Map(
-        this.etchings.map((etching) => [RuneLocation.toString(etching.runeId), etching])
+        this.etchings.map((etching) => [RuneLocation.toString(etching.runeId), etching]),
       );
       for (const balance of balances.values()) {
         const runeIdString = RuneLocation.toString(balance.runeId);
@@ -314,7 +314,7 @@ export class RuneUpdater implements RuneBlockIndex {
   async etched(
     txIndex: number,
     tx: UpdaterTx,
-    artifact: Artifact
+    artifact: Artifact,
   ): Promise<Option<{ runeId: RuneLocation; rune: Rune }>> {
     let optionRune: Option<Rune>;
     if (artifact.type === 'runestone') {
@@ -345,7 +345,7 @@ export class RuneUpdater implements RuneBlockIndex {
 
       if (
         this.etchings.find(
-          (etching) => SpacedRune.fromString(etching.runeName).rune.toString() === rune.toString()
+          (etching) => SpacedRune.fromString(etching.runeName).rune.toString() === rune.toString(),
         )
       ) {
         return None;
@@ -377,7 +377,7 @@ export class RuneUpdater implements RuneBlockIndex {
     const runeLocation = RuneLocation.toString(id);
 
     const etchingByRuneId = new Map(
-      this.etchings.map((etching) => [RuneLocation.toString(etching.runeId), etching])
+      this.etchings.map((etching) => [RuneLocation.toString(etching.runeId), etching]),
     );
 
     const etching =
@@ -479,6 +479,10 @@ export class RuneUpdater implements RuneBlockIndex {
     const commitment = rune.commitment;
     for (const input of tx.vin) {
       if ('coinbase' in input) {
+        continue;
+      }
+
+      if (!('txinwitness' in input) || !Array.isArray(input.txinwitness)) {
         continue;
       }
 
