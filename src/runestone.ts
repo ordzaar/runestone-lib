@@ -1,4 +1,4 @@
-import { MAGIC_NUMBER, MAX_DIVISIBILITY, MAX_SCRIPT_ELEMENT_SIZE, OP_RETURN } from './constants';
+import { MAGIC_NUMBER, MAX_DIVISIBILITY, OP_RETURN } from './constants';
 import { Edict } from './edict';
 import { Etching } from './etching';
 import { SeekBuffer } from './seekbuffer';
@@ -14,6 +14,7 @@ import { Message } from './message';
 import { Artifact } from './artifact';
 import { Flaw } from './flaw';
 import { Cenotaph } from './cenotaph';
+import { U32_MAX_BIGINT } from './integer/u32';
 
 export const MAX_SPACERS = 0b00000111_11111111_11111111_11111111;
 
@@ -32,7 +33,7 @@ export class Runestone {
     readonly mint: Option<RuneId>,
     readonly pointer: Option<u32>,
     readonly edicts: Edict[],
-    readonly etching: Option<Etching>
+    readonly etching: Option<Etching>,
   ) {}
 
   static decipher(transaction: RunestoneTx): Option<Artifact> {
@@ -52,7 +53,7 @@ export class Runestone {
 
     const { flaws, edicts, fields } = Message.fromIntegers(
       transaction.vout.length,
-      optionIntegers.unwrap()
+      optionIntegers.unwrap(),
     );
 
     let flags = Tag.take(Tag.FLAGS, fields, 1, ([value]) => Some(value)).unwrapOr(u128(0));
@@ -70,7 +71,7 @@ export class Runestone {
             ([value]): Option<u8> =>
               u128
                 .tryIntoU8(value)
-                .andThen<u8>((value) => (value <= MAX_DIVISIBILITY ? Some(value) : None))
+                .andThen<u8>((value) => (value <= MAX_DIVISIBILITY ? Some(value) : None)),
           );
 
           const rune = Tag.take(Tag.RUNE, fields, 1, ([value]) => Some(new Rune(value)));
@@ -80,7 +81,9 @@ export class Runestone {
             fields,
             1,
             ([value]): Option<u32> =>
-              u128.tryIntoU32(value).andThen((value) => (value <= MAX_SPACERS ? Some(value) : None))
+              u128
+                .tryIntoU32(value)
+                .andThen((value) => (value <= MAX_SPACERS ? Some(value) : None)),
           );
 
           const symbol = Tag.take(Tag.SYMBOL, fields, 1, ([value]) =>
@@ -90,7 +93,7 @@ export class Runestone {
               } catch (e) {
                 return None;
               }
-            })
+            }),
           );
 
           const termsResult = Flag.take(flags, Flag.TERMS);
@@ -145,7 +148,7 @@ export class Runestone {
       ([value]): Option<u32> =>
         u128
           .tryIntoU32(value)
-          .andThen((value) => (value < transaction.vout.length ? Some(value) : None))
+          .andThen((value) => (value < transaction.vout.length ? Some(value) : None)),
     );
 
     if (etching.map((etching) => etching.supply.isNone()).unwrapOr(false)) {
@@ -165,8 +168,8 @@ export class Runestone {
         new Cenotaph(
           flaws,
           etching.andThen((etching) => etching.rune),
-          mint
-        )
+          mint,
+        ),
       );
     }
 
@@ -194,16 +197,16 @@ export class Runestone {
       payloads.push(
         Tag.encodeOptionInt(
           Tag.RUNE,
-          etching.rune.map((rune) => rune.value)
-        )
+          etching.rune.map((rune) => rune.value),
+        ),
       );
       payloads.push(Tag.encodeOptionInt(Tag.DIVISIBILITY, etching.divisibility.map(u128)));
       payloads.push(Tag.encodeOptionInt(Tag.SPACERS, etching.spacers.map(u128)));
       payloads.push(
         Tag.encodeOptionInt(
           Tag.SYMBOL,
-          etching.symbol.map((symbol) => u128(symbol.codePointAt(0)!))
-        )
+          etching.symbol.map((symbol) => u128(symbol.codePointAt(0)!)),
+        ),
       );
       payloads.push(Tag.encodeOptionInt(Tag.PREMINE, etching.premine));
 
@@ -230,7 +233,7 @@ export class Runestone {
       payloads.push(u128.encodeVarInt(u128(Tag.BODY)));
 
       const edicts = [...this.edicts].sort((x, y) =>
-        Number(x.id.block - y.id.block || x.id.tx - y.id.tx)
+        Number(x.id.block - y.id.block || x.id.tx - y.id.tx),
       );
 
       let previous = new RuneId(u64(0), u32(0));
@@ -250,8 +253,8 @@ export class Runestone {
     stack.push(MAGIC_NUMBER);
 
     const payload = Buffer.concat(payloads);
-    for (let i = 0; i < payload.length; i += MAX_SCRIPT_ELEMENT_SIZE) {
-      stack.push(payload.subarray(i, i + MAX_SCRIPT_ELEMENT_SIZE));
+    for (let i = 0; i < payload.length; i += Number(U32_MAX_BIGINT)) {
+      stack.push(payload.subarray(i, i + Number(U32_MAX_BIGINT)));
     }
 
     return script.compile(stack);
